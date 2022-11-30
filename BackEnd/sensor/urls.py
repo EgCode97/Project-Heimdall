@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import read
+from .views import Influx
 urlpatterns = [
-    path('prueba', read)
+    path('prueba', Influx.as_view())
 ]

@@ -13,8 +13,8 @@ from decouple import config
 
 class Client:
     def __init__(self) -> None:
-        self.url = "192.168.0.107:8086"
-        self.org = "Heimdall"
+        self.url = config('INFLUX_URL')
+        self.org = config('INFLUX_ORG')
         self.client = influxdb_client.InfluxDBClient(url=self.url, token=config("INFLUXDB_TOKEN"), org=self.org)
 
     def write(self, bucket:str=None, measurement:str=None, tagname:str=None, tagvalue:str=None, fields:dict=None):
@@ -33,25 +33,36 @@ class Client:
         for field in fields:
             point.field(field, fields[field])
         
-        write_api.write(bucket=bucket, org="Heimdall", record=point)
+        write_api.write(bucket=bucket, org=self.org, record=point)
 
 
-        
-
-
-
-
-
-    def read(self):
+    def read(self, bucket:str=None, measurement:str=None, tagname:str=None, tagvalue:str=None, fields:list=None, range:str="-1d"):
         query_api = self.client.query_api()
 
-        query = """from(bucket: "PRUEBA")
-        |> range(start: -10d)
-        |> filter(fn: (r) => r._measurement == "measurement1")"""
-        tables = query_api.query(query, org="Heimdall")
+        query = f"""
+        from(bucket: "{bucket}")
+        |> range(start: {range})
+        |> filter(fn: (r) => r._measurement == "{measurement}")
+        |> filter(fn: (r) => r.{tagname} == "{tagvalue}")
+        """
 
-        for table in tables:
-            print(table)
-            for record in table.records:
-                print(record)
+        if fields:
+            query += f'|> filter(fn: (r) => r["_field"] == {fields.pop(0)}'
+
+            for field in fields:
+                query += f'or r["_field"] == {field}'
+
+            query += ')'
+
+        tables = query_api.query(query, org=self.org)
+
+        # for table in tables:
+        #     print(table)
+        #     for record in table.records:
+        #         print(record)
+
+        return tables
+
         
+if __name__=='__main__':
+    Client().write(bucket='prueba', measurement='prueba-python', tagname='Elias', tagvalue='VBox', fields={'temperatura':22, 'humedad':30, 'distancia':50})

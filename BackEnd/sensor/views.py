@@ -1,22 +1,42 @@
 from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
 import django.http as http
 
 from rest_framework.views import APIView
 
 from .influxDB import InfluxDB
 
-def read(request):
-    influx = InfluxDB.Client()
-    # influx = Influx()
-    influx.write(bucket="PRUEBA", measurement="headquarters", tagname="recepcion", tagvalue="piso_1", fields={"temperatura":23.50, "humedad":35} )
-    return http.HttpResponse("done")
-
 
 class Influx(APIView):
-    def get(request):
-        pass
+    def get(self, request):
+        json_data = dict()
+        json_data['count'] = 0
+        json_data['data'] = list()
+        influx_client = InfluxDB.Client()
+        query_params = request.query_params 
 
-    def post(request):
+        tables = influx_client.read(
+            bucket= query_params.get('bucket'),
+            measurement= query_params.get('measurement'),
+            tagname= query_params.get('tagname'),
+            tagvalue= query_params.get('tagvalue'),
+            fields= query_params.get('fields').split(';') if query_params.get('fields') else None,
+            range= query_params.get('range') if query_params.get('fields') else '-8h'
+        )
+
+        for table in tables:
+            # print(table)
+            for record in table.records:
+                ret = record.values
+                json_data['data'].append(record.values)
+                print(record.values)
+            #     break
+            # break
+
+        return http.JsonResponse(json_data)
+
+    @csrf_exempt
+    def post(self, request):
         data = request.data if request.data else request.POST
         if not (data.get('bucket'), data.get('measurement'), data.get('tag'), data.get('fields')):
             response = http.HttpResponse()
@@ -31,3 +51,5 @@ class Influx(APIView):
             tagvalue= data['tag']['tagvalue'],
             fields= data['fields']
         )
+
+        return http.HttpResponse('ok')

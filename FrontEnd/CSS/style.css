@@ -17,7 +17,8 @@ color-critical: #C80428
     --color-bg-dark-darker: #08070D;
     --color-critical: #b93f56;
     --color-info: #354DD4;
-    --color-warning: #ffdd55;
+    /* --color-warning: #ffdd55; */
+    --color-warning: #e9d170;
     --color-aux: #0FFA89;
     --color-font: #c1b9ec;
     --color-font-dark: #120D30;
