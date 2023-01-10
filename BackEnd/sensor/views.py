@@ -98,8 +98,62 @@ class SensorApi(APIView):
 
         return sensor, error
 
-    def get(self, request):
-        pass
+
+    @staticmethod
+    def update_sensor(id:int, new_name:str=None, new_type:str=None):
+        sensor, error = None, None
+        try:
+            sensor = Sensor.objects.get(id=id)
+        except Sensor.DoesNotExist:
+            error = 'Sensor doesn\t exists'
+            return sensor, error
+        
+        if new_name in [sensor.name for sensor in Sensor.objects.filter(station__id=sensor.station.id)]:
+            error = 'sensor name already in use for the station'
+            return sensor, error
+        
+        elif new_type not in [sensor_tuple[0] for sensor_tuple in Sensor.sensor_types]:
+            error = 'sensor type not supported'
+            return sensor, error
+        
+        sensor.name = new_name if new_name else sensor.name
+        sensor.type = new_type if new_type else sensor.type
+        sensor.save()
+        return sensor, error
+
+
+    @staticmethod
+    def search_sensor(id:int=None, name:str=None, station:int=None, type:str=None):
+        if id:
+            search = Sensor.objects.filter(id=id)
+        
+        elif name and station:
+            search = Sensor.objects.filter(station__id=station, name=name)
+
+        elif station and type:
+            search = Sensor.objects.filter(station__id=station, type=type)
+        
+        elif station:
+            search = Sensor.objects.filter(station__id=station)
+
+        else:
+            search = Sensor.objects.none()
+
+        return search
+
+
+    def get(self, request) -> JsonResponse:
+        response = dict()
+        query_params = request.GET.copy()
+        
+        search = SensorApi.search_sensor(
+            id= query_params.get('id'),
+            name= query_params.get('name'),
+            station= query_params.get('station'),
+            type= query_params.get('type')
+        )
+        response['data'] = SensorSerializer(search, many=True).data
+        return JsonResponse(response)
 
     def post(self, request) -> JsonResponse:
         json_data = dict()
@@ -124,8 +178,28 @@ class SensorApi(APIView):
 
         return JsonResponse(json_data)
 
-    def put(self, request):
-        pass
+    def put(self, request) -> JsonResponse:
+        json_data = dict()
+        json_data['success'] = False
+        json_data['error'] = None
+        json_data['data'] = None
+
+        error = None
+        params = request.data
+        if 'id' in params:
+            sensor, error = SensorApi.update_sensor(id=params['id'], new_name=params.get('name'), new_type=params.get('type'))
+        else:
+            error = 'invalid parameters'
+        
+        if not error:
+            json_data['data'] = SensorSerializer(sensor).data
+
+        else:
+            json_data['error'] = error
+
+        json_data['success'] = bool(json_data['data'])
+
+        return JsonResponse(json_data)
 
 
 
